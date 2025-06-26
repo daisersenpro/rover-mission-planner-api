@@ -3,7 +3,9 @@ using RoverMissionPlanner.Domain;
 using RoverMissionPlanner.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using FluentValidation;
 using FluentValidation.AspNetCore;
+using RoverMissionPlanner.API; // <-- AGREGA ESTA LÍNEA
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,10 +17,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddControllers(); // <-- Agregado para soportar controladores
-builder.Services.AddFluentValidation(fv =>
-{
-    fv.RegisterValidatorsFromAssemblyContaining<RoverTaskValidator>();
-});
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<RoverTaskValidator>();
 
 // Agrega el DbContext y la cadena de conexión SQLite
 builder.Services.AddDbContext<RoverMissionPlannerDbContext>(options =>
@@ -27,6 +27,17 @@ builder.Services.AddDbContext<RoverMissionPlannerDbContext>(options =>
 // Inyección de dependencias para repositorio y servicio
 builder.Services.AddScoped<IRoverTaskRepository, RoverTaskRepository>();
 builder.Services.AddScoped<RoverTaskService>();
+
+// Habilita CORS para permitir peticiones desde el frontend Angular (puerto 4200)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularDev",
+        policy => policy
+            .WithOrigins("http://localhost:4200") // Origen del frontend Angular
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+    );
+});
 
 var app = builder.Build();
 
@@ -39,6 +50,9 @@ if (app.Environment.IsDevelopment())
 
 // Registrar el middleware global de excepciones
 app.UseMiddleware<RoverMissionPlanner.API.ExceptionMiddleware>();
+
+// Usa la política de CORS definida arriba antes de los controladores y redirección HTTPS
+app.UseCors("AllowAngularDev");
 
 app.UseHttpsRedirection();
 
